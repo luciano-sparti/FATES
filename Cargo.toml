@@ -3,7 +3,14 @@ name = "fates"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+description = "A lightweight, declarative process orchestrator for the command line."
+readme = "README.md"
+homepage = "https://github.com/Luciano-Sparti/FATES"
 repository = "https://github.com/Luciano-Sparti/FATES"
+documentation = "https://github.com/Luciano-Sparti/FATES#readme"
+keywords = ["process", "orchestration", "cli", "devops", "process-management"]
+categories = ["command-line-utilities", "development-tools"]
+authors = ["Luciano Sparti <luciano.sparti@proton.me>"]
 
 
 [dependencies]
