@@ -47,11 +47,13 @@ jobs:
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
         run: cargo build --release --target ${{ matrix.target }}
+      - name: Stage uniquely-named binary
+        run: cp "target/${{ matrix.target }}/release/fates" "fates-${{ matrix.name }}"
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
-          path: target/${{ matrix.target }}/release/fates
+          path: fates-${{ matrix.name }}
           if-no-files-found: error
 
   release:
@@ -65,10 +67,9 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-          merge-multiple: true
       - name: Create GitHub Release with binaries
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/fates*
+          files: artifacts/**/fates-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
