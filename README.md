@@ -1,6 +1,7 @@
 # FATES ⎊
 
 [![CI](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml/badge.svg)](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/fates-cli)](https://crates.io/crates/fates-cli)
 ![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-000000?logo=rust&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20macOS-lightgrey)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
@@ -71,6 +72,14 @@ FATES replaces that with:
 ---
 
 ## Installation
+
+### From crates.io (recommended)
+
+```bash
+cargo install fates-cli   # installs the `fates` binary; requires Rust & Cargo (https://rustup.rs)
+```
+
+### From source
 
 ```bash
 git clone https://github.com/Luciano-Sparti/FATES
