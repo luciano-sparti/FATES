@@ -1,6 +1,9 @@
 # FATES ⎊
 
 [![CI](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml/badge.svg)](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml)
+![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-000000?logo=rust&logoColor=white)
+![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20macOS-lightgrey)
+![License](https://img.shields.io/badge/License-None-yellow)
 
 > *Thread management, orchestrated.*  
 > Spinning creates. Drawing runs. Cutting ends.
@@ -38,6 +41,35 @@ No `tmux` panes to juggle. No shell scripts to maintain. Just a `fates.yaml` and
 - 🗂️ **Captured logs** — every group's output is saved, so you always have an audit trail.
 - 🔒 **Crash-safe state** — atomic writes and file locks mean concurrent runs and crashes never corrupt your state.
 - 🧳 **Portable & ephemeral** — state lives wherever you point it (default `/tmp/fates`); nothing persisted by accident.
+
+---
+
+## The lifecycle & how it compares
+
+### The three verbs, mapped to the Moirai
+
+```
+        spin ──▶  REGISTERED  ──▶  draw  ──▶  RUNNING  ──▶  cut  ──▶  STOPPED
+   (Clotho,         intent)      (Lachesis,   (alive)     (Atropos,   (released)
+    who spins)                    who draws)               who cuts)
+```
+
+One `fates.yaml`, three words. `draw --all` brings a stack up in dependency order; `cut --all` tears it down the reverse way — so a full dev environment is two commands.
+
+### How FATES compares
+
+| Capability | **FATES** | `tmux` | `systemd` | `overmind` | `foreman` |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Declarative stack (`fates.yaml` / Procfile / units) | ✅ | ❌ | ✅ | ⚠️ Procfile | ⚠️ Procfile |
+| Dependency-ordered start / stop | ✅ `depends` | ❌ | ✅ `After=` | ❌ | ❌ |
+| One command: up / down | ✅ `draw`/`cut --all` | ⚠️ manual | ⚠️ `systemctl` | ✅ | ✅ |
+| Live dashboard (`loom`) | ✅ | ❌ | ❌ | ⚠️ basic | ❌ |
+| Per-process captured logs | ✅ | ⚠️ manual | ✅ `journald` | ✅ | ✅ |
+| Crash-safe state (atomic + locks) | ✅ | ❌ | ✅ | ❌ | ❌ |
+| No root required | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Written in | **Rust** | C | C | Ruby | Ruby |
+
+> A simplification, but the shape holds: FATES trades `systemd`'s machine-level power for a zero-config, rootless, stack-oriented workflow you can drop into any repo — and it adds the live `loom` dashboard and `depends`-driven ordering that `tmux` / `foreman` / `overmind` leave to you.
 
 ---
 
@@ -363,6 +395,20 @@ fates loom --watch 5
 
 Piped through a non-terminal, `loom --watch` falls back to clearing and re-printing the plain table, so it still works in scripts and CI. `loom` itself auto-detects: colors are only emitted to a terminal — `fates loom | jq` piping stays byte-clean.
 
+In a terminal, `loom --watch` becomes a box-drawn dashboard on the alternate screen (your scrollback is untouched on exit):
+
+```
+┌─ FATES · loom ──────────────────────────────────────────────────┐
+│ NAME        STATUS     PID      CPU%     MEMORY     LIFETIME     │
+│ postgres    RUNNING    84201    0.2%     22.4 MB    3m 12s       │
+│ api         RUNNING    84350    1.4%     88.1 MB    2m 58s       │
+│ frontend    RUNNING    84489    0.0%     140.2 MB   2m 47s       │
+│ redis       STOPPED    -        -        -          -            │
+│ ── Totals: 3 running · 1 stopped · CPU 1.6% · 250.7 MB ──────────│
+└─────────────────────────────────────────────────────────────────┘
+  ↑/↓ select · Enter toggle logs · q quit
+```
+
 The same check protects the dangerous operations: `cut` refuses to signal a stale PID (a negative-PID kill would otherwise hit whatever process now owns it), and `draw` clears stale PIDs and starts a fresh instance instead of claiming the group is still running.
 
 ---
@@ -635,3 +681,18 @@ fates completions zsh > ~/.zfunc/_fates
 | `0` | Success |
 | `1` | Command error (group not found, already running, invalid config, bad arguments) |
 | `2` | System error (I/O, state lock/creation failure, spawn failure) |
+
+---
+
+## Contributing
+
+FATES is young and contributions are welcome — bug reports, docs, and especially new commands or platform support.
+
+1. Fork and clone the repo.
+2. `cargo build` to try it locally; `./demo.sh` for a self-contained tour of every command.
+3. Keep `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` clean — CI enforces both.
+4. Open a PR against `master`.
+
+## License
+
+FATES is currently **unlicensed** (all rights reserved). A permissive license (MIT or Apache-2.0) is planned so the code can be freely reused — tracking in an upcoming release. Until then, the source is here for reading and learning. If you'd like to use it sooner, open an issue and I'll prioritize publishing a license.
