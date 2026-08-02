@@ -46,3 +46,22 @@ jobs:
           name: ${{ matrix.name }}
           path: target/${{ matrix.target }}/release/fates
           if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release with binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/fates*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
