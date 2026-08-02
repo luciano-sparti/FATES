@@ -3,9 +3,37 @@
 > *Thread management, orchestrated.*  
 > Spinning creates. Drawing runs. Cutting ends.
 
+> **A note on the name.** In Greek myth, the **Moirai** — the Three Fates — hold the thread of every life:
+> *Clotho* **spins** it at birth, *Lachesis* **draws** it out to its destined length, and *Atropos* **cuts** it at death.
+> FATES borrows their names because process management is the same small ritual — declare intent, let the work run, end it cleanly.
+
+## Contents
+
+- [Why FATES?](#why-fates-for-devops)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference-fatesyaml)
+- [Command Reference](#command-reference)
+- [DevOps Patterns](#devops-patterns)
+- [State & Logs](#state--logs)
+- [Demo](#demo)
+- [Development](#development)
+- [Shell Completions](#shell-completions)
+
 FATES is a lightweight, declarative **process orchestrator** for the command line. It lets you define named service groups — each with their own command, working directory, and dependencies — and manage their full lifecycle from a single binary.
 
 No `tmux` panes to juggle. No shell scripts to maintain. Just a `fates.yaml` and three words.
+
+## Features
+
+- 🧵 **Declarative stacks** — one `fates.yaml` declares every service and its startup order.
+- ▶️ **Three verbs** — `spin` to register, `draw` to run, `cut` to stop. That's the whole vocabulary.
+- 🪢 **Dependency-aware** — `draw --all` brings your stack up in the right order; `cut --all` tears it down safely.
+- 📊 **Live dashboard** — `loom` shows every process's status, CPU, memory, and uptime at a glance, with an interactive `--watch` mode.
+- 🗂️ **Captured logs** — every group's output is saved, so you always have an audit trail.
+- 🔒 **Crash-safe state** — atomic writes and file locks mean concurrent runs and crashes never corrupt your state.
+- 🧳 **Portable & ephemeral** — state lives wherever you point it (default `/tmp/fates`); nothing persisted by accident.
 
 ---
 
@@ -24,9 +52,9 @@ FATES replaces that with:
 ## Installation
 
 ```bash
-git clone https://github.com/youruser/fates
-cd fates
-cargo build --release
+git clone https://github.com/Luciano-Sparti/FATES
+cd FATES
+cargo build --release   # requires Rust & Cargo (https://rustup.rs)
 ```
 
 Copy the binary somewhere on your `$PATH`:
@@ -69,6 +97,10 @@ fates draw postgres
 fates draw api
 fates draw frontend
 ```
+
+> *spin · draw · cut* — the three Fates, in the order a life is lived: intent, motion, release.
+
+> **Tip:** bring the whole stack up in one command with `fates draw --all` (it respects the `depends` order), and tear it all down with `fates cut --all`.
 
 **3. Check your stack:**
 
@@ -130,6 +162,8 @@ FATES validates your config on every `spin` and every `draw --all`. It will refu
 ## Command Reference
 
 Every command has a conventional alias so you don't have to memorize the weaving metaphor:
+
+The three core verbs are named for the Moirai: **`spin`** (Clotho, who begins), **`draw`** (Lachesis, who sustains), and **`cut`** (Atropos, who ends) — with `loom`, `weave`, and `omen` as the watchers who read the thread.
 
 | Command | What it does | Alias(es) |
 |---|---|---|
