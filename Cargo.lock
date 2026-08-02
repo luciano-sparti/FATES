@@ -219,7 +219,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fates"
+name = "fates-cli"
 version = "0.1.0"
 dependencies = [
  "clap",

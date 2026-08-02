@@ -1,5 +1,5 @@
 [package]
-name = "fates"
+name = "fates-cli"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
@@ -12,6 +12,11 @@ keywords = ["process", "orchestration", "cli", "devops", "process-management"]
 categories = ["command-line-utilities", "development-tools"]
 authors = ["Luciano Sparti <luciano.sparti@proton.me>"]
 
+# The crate is published as `fates-cli` (the name `fates` is taken on crates.io),
+# but the installed binary keeps the short, memorable name `fates`.
+[[bin]]
+name = "fates"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
