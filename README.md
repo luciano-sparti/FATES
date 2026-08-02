@@ -73,7 +73,26 @@ FATES replaces that with:
 
 ## Installation
 
-### From crates.io (recommended)
+### Prebuilt binary (no Rust toolchain needed)
+
+Download the binary for your platform from the [latest release](https://github.com/Luciano-Sparti/FATES/releases/latest), then drop it on your `$PATH`:
+
+```bash
+# Linux x86_64 — example
+curl -L https://github.com/Luciano-Sparti/FATES/releases/latest/download/fates-linux-x86_64 -o fates
+chmod +x fates && mv fates ~/.local/bin/fates
+```
+
+Assets are provided for **Linux** (x86_64, aarch64) and **macOS** (Intel, Apple Silicon).
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap Luciano-Sparti/fates
+brew install fates
+```
+
+### From crates.io
 
 ```bash
 cargo install fates-cli   # installs the `fates` binary; requires Rust & Cargo (https://rustup.rs)
@@ -92,6 +111,7 @@ Copy the binary somewhere on your `$PATH`:
 ```bash
 cp target/release/fates ~/.local/bin/fates
 ```
+
 
 ---
 
