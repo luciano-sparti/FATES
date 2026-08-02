@@ -3,7 +3,7 @@
 [![CI](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml/badge.svg)](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml)
 ![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-000000?logo=rust&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20macOS-lightgrey)
-![License](https://img.shields.io/badge/License-None-yellow)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 > *Thread management, orchestrated.*  
 > Spinning creates. Drawing runs. Cutting ends.
@@ -680,4 +680,4 @@ FATES is young and contributions are welcome — bug reports, docs, and especial
 
 ## License
 
-FATES is currently **unlicensed** (all rights reserved). A permissive license (MIT or Apache-2.0) is planned so the code can be freely reused — tracking in an upcoming release. Until then, the source is here for reading and learning. If you'd like to use it sooner, open an issue and I'll prioritize publishing a license.
+FATES is released under the **MIT License** — free to use, modify, and redistribute, with no warranty. See the [LICENSE](LICENSE) file for the full text.
