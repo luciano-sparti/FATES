@@ -1,0 +1,11 @@
+groups:
+  web:
+    cmd: sleep 100
+    depends: [db]
+
+  db:
+    cmd: sleep 200
+
+  api:
+    cmd: sleep 150
+    depends: [db]
