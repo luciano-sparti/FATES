@@ -85,13 +85,6 @@ chmod +x fates && mv fates ~/.local/bin/fates
 
 Assets are provided for **Linux** (x86_64, aarch64) and **macOS** (Intel, Apple Silicon).
 
-### Homebrew (macOS / Linux)
-
-```bash
-brew tap Luciano-Sparti/fates
-brew install fates
-```
-
 ### From crates.io
 
 ```bash
