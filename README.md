@@ -1,5 +1,7 @@
 # FATES ⎊
 
+[![CI](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml/badge.svg)](https://github.com/Luciano-Sparti/FATES/actions/workflows/ci.yml)
+
 > *Thread management, orchestrated.*  
 > Spinning creates. Drawing runs. Cutting ends.
 
