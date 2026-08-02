@@ -44,7 +44,7 @@ No `tmux` panes to juggle. No shell scripts to maintain. Just a `fates.yaml` and
 
 ---
 
-## The lifecycle & how it compares
+## The lifecycle of a thread
 
 ### The three verbs, mapped to the Moirai
 
@@ -55,21 +55,6 @@ No `tmux` panes to juggle. No shell scripts to maintain. Just a `fates.yaml` and
 ```
 
 One `fates.yaml`, three words. `draw --all` brings a stack up in dependency order; `cut --all` tears it down the reverse way — so a full dev environment is two commands.
-
-### How FATES compares
-
-| Capability | **FATES** | `tmux` | `systemd` | `overmind` | `foreman` |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Declarative stack (`fates.yaml` / Procfile / units) | ✅ | ❌ | ✅ | ⚠️ Procfile | ⚠️ Procfile |
-| Dependency-ordered start / stop | ✅ `depends` | ❌ | ✅ `After=` | ❌ | ❌ |
-| One command: up / down | ✅ `draw`/`cut --all` | ⚠️ manual | ⚠️ `systemctl` | ✅ | ✅ |
-| Live dashboard (`loom`) | ✅ | ❌ | ❌ | ⚠️ basic | ❌ |
-| Per-process captured logs | ✅ | ⚠️ manual | ✅ `journald` | ✅ | ✅ |
-| Crash-safe state (atomic + locks) | ✅ | ❌ | ✅ | ❌ | ❌ |
-| No root required | ✅ | ✅ | ❌ | ✅ | ✅ |
-| Written in | **Rust** | C | C | Ruby | Ruby |
-
-> A simplification, but the shape holds: FATES trades `systemd`'s machine-level power for a zero-config, rootless, stack-oriented workflow you can drop into any repo — and it adds the live `loom` dashboard and `depends`-driven ordering that `tmux` / `foreman` / `overmind` leave to you.
 
 ---
 
