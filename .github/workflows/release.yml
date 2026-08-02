@@ -79,16 +79,16 @@ jobs:
     name: publish to crates.io
     needs: build
     runs-on: ubuntu-latest
-    # Only runs when the CARGO_REGISTRY_TOKEN secret is configured.
-    # Add it under Settings → Secrets and variables → Actions.
-    if: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish fates-cli to crates.io
+        # Only runs when the CARGO_REGISTRY_TOKEN secret is configured.
+        # Add it under Settings → Secrets and variables → Actions.
+        if: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
         run: cargo publish --token "${CARGO_REGISTRY_TOKEN}"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
