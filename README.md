@@ -7,6 +7,8 @@
 > *Clotho* **spins** it at birth, *Lachesis* **draws** it out to its destined length, and *Atropos* **cuts** it at death.
 > FATES borrows their names because process management is the same small ritual — declare intent, let the work run, end it cleanly.
 
+![The Three Fates — spinning, drawing, and cutting the thread of every process](moirai.png)
+
 ## Contents
 
 - [Why FATES?](#why-fates-for-devops)
