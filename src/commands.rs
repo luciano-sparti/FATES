@@ -194,13 +194,14 @@ fn draw_one(name: &str, config: &Config, state: &mut State, state_dir: &Path) ->
     // Await readiness of dependencies that have health checks configured
     if let Some(group) = config.groups.get(name) {
         for dep in group.depends_names() {
-            if let Some(dep_group) = config.groups.get(&dep) {
-                if group.requires_healthy(&dep) {
-                    if let Some(ref hc) = dep_group.healthcheck {
-                        println!("Awaiting healthy status for dependency '{}'...", dep);
-                        crate::health::wait_for_healthy(&dep, hc)?;
-                    }
-                }
+            if let Some(hc) = config
+                .groups
+                .get(&dep)
+                .and_then(|dg| dg.healthcheck.as_ref())
+                .filter(|_| group.requires_healthy(&dep))
+            {
+                println!("Awaiting healthy status for dependency '{}'...", dep);
+                crate::health::wait_for_healthy(&dep, hc)?;
             }
         }
     }
@@ -279,12 +280,10 @@ fn draw_one(name: &str, config: &Config, state: &mut State, state_dir: &Path) ->
         log_path.display()
     );
 
-    if let Some(group) = config.groups.get(name) {
-        if let Some(ref hc) = group.healthcheck {
-            println!("Performing initial health check for thread '{}'...", name);
-            if let Err(e) = crate::health::wait_for_healthy(name, hc) {
-                eprintln!("Warning: Initial health check for '{}' failed: {}", name, e);
-            }
+    if let Some(hc) = config.groups.get(name).and_then(|g| g.healthcheck.as_ref()) {
+        println!("Performing initial health check for thread '{}'...", name);
+        if let Err(e) = crate::health::wait_for_healthy(name, hc) {
+            eprintln!("Warning: Initial health check for '{}' failed: {}", name, e);
         }
     }
     Ok(())

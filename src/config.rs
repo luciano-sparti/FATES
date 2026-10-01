@@ -65,14 +65,12 @@ impl GroupConfig {
     }
 
     pub fn requires_healthy(&self, dep_name: &str) -> bool {
-        for d in &self.depends {
-            if d.name() == dep_name {
-                if let Some(cond) = d.condition() {
-                    return cond.eq_ignore_ascii_case("healthy");
-                }
-            }
-        }
-        false
+        self.depends.iter().any(|d| {
+            d.name() == dep_name
+                && d.condition()
+                    .map(|cond| cond.eq_ignore_ascii_case("healthy"))
+                    .unwrap_or(false)
+        })
     }
 }
 
@@ -145,10 +143,7 @@ impl Config {
                 for dep in group.depends_names() {
                     if present.contains(&dep) && dep != *name {
                         *indegree.get_mut(name).unwrap() += 1;
-                        dependents
-                            .entry(dep)
-                            .or_default()
-                            .push(name.clone());
+                        dependents.entry(dep).or_default().push(name.clone());
                     }
                 }
             }
@@ -328,7 +323,10 @@ services:
         let db = &cfg.groups["database"];
         assert_eq!(db.cmd, "postgres -D /data");
         assert!(db.healthcheck.is_some());
-        assert_eq!(db.healthcheck.as_ref().unwrap().tcp.as_deref(), Some("127.0.0.1:5432"));
+        assert_eq!(
+            db.healthcheck.as_ref().unwrap().tcp.as_deref(),
+            Some("127.0.0.1:5432")
+        );
 
         let api = &cfg.groups["api"];
         assert_eq!(api.depends_names(), vec!["database"]);

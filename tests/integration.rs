@@ -1360,8 +1360,16 @@ groups:
     assert_eq!(code, 0);
     assert!(stdout.contains("==> srv1.log <=="), "stdout: {}", stdout);
     assert!(stdout.contains("==> srv2.log <=="), "stdout: {}", stdout);
-    assert!(stdout.contains("hello from service 1"), "stdout: {}", stdout);
-    assert!(stdout.contains("hello from service 2"), "stdout: {}", stdout);
+    assert!(
+        stdout.contains("hello from service 1"),
+        "stdout: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("hello from service 2"),
+        "stdout: {}",
+        stdout
+    );
 
     let _ = env.run(&["--config", &cfg_str, "cut", "--all", "--force"]);
 }

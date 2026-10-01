@@ -23,7 +23,12 @@ fn main() {
         Commands::Loom { json, watch } => commands::loom(json, watch, &state_dir),
         Commands::Weave { name } => commands::weave(name, &cfg),
         Commands::Omen { name } => commands::omen(name, &state_dir),
-        Commands::Logs { name, all, tail, follow } => commands::logs(name, all, tail, follow, &state_dir),
+        Commands::Logs {
+            name,
+            all,
+            tail,
+            follow,
+        } => commands::logs(name, all, tail, follow, &state_dir),
         Commands::Wait { name, timeout } => commands::wait(name, timeout, &state_dir),
         Commands::Init { path } => commands::init(&path),
         Commands::Completions { shell } => {

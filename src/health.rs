@@ -99,13 +99,12 @@ pub fn check_http(url: &str, timeout: Duration) -> bool {
                     let resp_str = String::from_utf8_lossy(&resp[..n]);
                     // e.g. HTTP/1.1 200 OK
                     if let Some(first_line) = resp_str.lines().next() {
-                        let parts: Vec<&str> = first_line.split_whitespace().collect();
-                        if parts.len() >= 2 {
-                            if let Ok(status) = parts[1].parse::<u16>() {
-                                if (200..400).contains(&status) {
-                                    return true;
-                                }
-                            }
+                        let status_opt = first_line
+                            .split_whitespace()
+                            .nth(1)
+                            .and_then(|s| s.parse::<u16>().ok());
+                        if matches!(status_opt, Some(200..400)) {
+                            return true;
                         }
                     }
                 }
@@ -142,7 +141,10 @@ pub fn wait_for_healthy(name: &str, hc: &HealthCheckConfig) -> Result<(), Error>
 
     for attempt in 1..=retries {
         if probe(hc) {
-            println!("Thread '{}' is healthy (attempt {}/{})", name, attempt, retries);
+            println!(
+                "Thread '{}' is healthy (attempt {}/{})",
+                name, attempt, retries
+            );
             return Ok(());
         }
         thread::sleep(interval);
