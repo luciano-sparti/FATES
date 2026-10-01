@@ -191,6 +191,20 @@ fn draw_one(name: &str, config: &Config, state: &mut State, state_dir: &Path) ->
         process_state.pid = None;
     }
 
+    // Await readiness of dependencies that have health checks configured
+    if let Some(group) = config.groups.get(name) {
+        for dep in group.depends_names() {
+            if let Some(dep_group) = config.groups.get(&dep) {
+                if group.requires_healthy(&dep) {
+                    if let Some(ref hc) = dep_group.healthcheck {
+                        println!("Awaiting healthy status for dependency '{}'...", dep);
+                        crate::health::wait_for_healthy(&dep, hc)?;
+                    }
+                }
+            }
+        }
+    }
+
     let mut cmd = Command::new(&args[0]);
     cmd.args(&args[1..]);
 
@@ -264,6 +278,15 @@ fn draw_one(name: &str, config: &Config, state: &mut State, state_dir: &Path) ->
         pid,
         log_path.display()
     );
+
+    if let Some(group) = config.groups.get(name) {
+        if let Some(ref hc) = group.healthcheck {
+            println!("Performing initial health check for thread '{}'...", name);
+            if let Err(e) = crate::health::wait_for_healthy(name, hc) {
+                eprintln!("Warning: Initial health check for '{}' failed: {}", name, e);
+            }
+        }
+    }
     Ok(())
 }
 
@@ -472,8 +495,10 @@ pub fn loom(json: bool, watch: Option<u64>, state_dir: &Path) -> Result<(), Erro
                 // Not a terminal (pipe, script, test): clear + re-print the
                 // plain dashboard so the loop still refreshes visibly.
                 loop {
+                    use std::io::Write;
                     print!("\x1b[2J\x1b[H");
                     loom_once(json, state_dir)?;
+                    std::io::stdout().flush().ok();
                     thread::sleep(interval);
                 }
             }
@@ -493,10 +518,10 @@ pub(crate) fn loom_rows(
         return Ok(None);
     }
 
-    let mut sys = System::new_all();
-    sys.refresh_all();
-    thread::sleep(Duration::from_millis(100));
-    sys.refresh_all();
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    thread::sleep(Duration::from_millis(50));
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
     let mut state_changed = false;
     let mut names: Vec<String> = state.processes.keys().cloned().collect();
@@ -565,6 +590,8 @@ fn loom_once(json: bool, state_dir: &Path) -> Result<(), Error> {
     } else {
         print!("{}", crate::dashboard::render_plain(&rows, &totals));
     }
+    use std::io::Write;
+    std::io::stdout().flush().ok();
     Ok(())
 }
 
@@ -583,8 +610,9 @@ pub fn weave(name: String, config_path: &str) -> Result<(), Error> {
     visited.insert(name.clone());
 
     if let Some(group) = config.groups.get(&name) {
-        let len = group.depends.len();
-        for (i, dep) in group.depends.iter().enumerate() {
+        let deps = group.depends_names();
+        let len = deps.len();
+        for (i, dep) in deps.iter().enumerate() {
             let dep_is_last = i == len - 1;
             print_tree(dep, &config, "", dep_is_last, &mut visited);
         }
@@ -614,8 +642,9 @@ fn print_tree(
 
     if let Some(group) = config.groups.get(name) {
         let child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
-        let len = group.depends.len();
-        for (i, dep) in group.depends.iter().enumerate() {
+        let deps = group.depends_names();
+        let len = deps.len();
+        for (i, dep) in deps.iter().enumerate() {
             let dep_is_last = i == len - 1;
             print_tree(dep, config, &child_prefix, dep_is_last, visited);
         }
@@ -819,12 +848,149 @@ fn follow_log(log_path: &Path, tail: Option<usize>) -> Result<(), Error> {
     }
 }
 
+fn follow_all_logs(state_dir: &Path, tail: Option<usize>) -> Result<(), Error> {
+    use std::io::{Read, Seek, SeekFrom, Write};
+    let state = State::load(state_dir);
+    let mut names: Vec<String> = state.processes.keys().cloned().collect();
+    names.sort();
+
+    if names.is_empty() {
+        println!("No process groups found in state.");
+        return Ok(());
+    }
+
+    let colors = ["36", "35", "32", "33", "34", "31"]; // Cyan, Magenta, Green, Yellow, Blue, Red
+
+    struct Streamer {
+        name: String,
+        color: &'static str,
+        file: Option<std::fs::File>,
+        offset: u64,
+        log_path: std::path::PathBuf,
+        line_buf: String,
+    }
+
+    let mut streamers: Vec<Streamer> = Vec::new();
+    for (i, name) in names.iter().enumerate() {
+        let color = colors[i % colors.len()];
+        let log_path = State::log_file(state_dir, name);
+        let mut file = std::fs::File::open(&log_path).ok();
+        let mut offset = 0;
+        if let Some(ref mut f) = file {
+            if let Some(n) = tail {
+                if let Ok(buf) = tail_bytes(&log_path, n) {
+                    let s = String::from_utf8_lossy(&buf);
+                    for line in s.lines() {
+                        println!("\x1b[{}m[{}]\x1b[0m {}", color, name, line);
+                    }
+                    offset = f.metadata().map(|m| m.len()).unwrap_or(0);
+                }
+            } else {
+                offset = f.metadata().map(|m| m.len()).unwrap_or(0);
+            }
+        }
+        streamers.push(Streamer {
+            name: name.clone(),
+            color,
+            file,
+            offset,
+            log_path,
+            line_buf: String::new(),
+        });
+    }
+
+    loop {
+        let mut any_activity = false;
+        for s in &mut streamers {
+            if s.file.is_none() && s.log_path.exists() {
+                s.file = std::fs::File::open(&s.log_path).ok();
+                s.offset = 0;
+            }
+
+            if let Some(ref mut f) = s.file {
+                let current_len = std::fs::metadata(&s.log_path).map(|m| m.len()).unwrap_or(0);
+                if current_len < s.offset {
+                    // Rotated
+                    if let Ok(new_f) = std::fs::File::open(&s.log_path) {
+                        *f = new_f;
+                        s.offset = 0;
+                    }
+                }
+
+                if f.seek(SeekFrom::Start(s.offset)).is_ok() {
+                    let mut buf = Vec::new();
+                    if f.read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                        s.offset += buf.len() as u64;
+                        any_activity = true;
+                        let text = String::from_utf8_lossy(&buf);
+                        s.line_buf.push_str(&text);
+
+                        while let Some(idx) = s.line_buf.find('\n') {
+                            let line = s.line_buf[..idx].to_string();
+                            s.line_buf.drain(..=idx);
+                            println!("\x1b[{}m[{}]\x1b[0m {}", s.color, s.name, line);
+                            std::io::stdout().flush().ok();
+                        }
+                    }
+                }
+            }
+        }
+
+        if !any_activity {
+            thread::sleep(Duration::from_millis(150));
+        }
+    }
+}
+
+fn print_all_logs(state_dir: &Path, tail: Option<usize>) -> Result<(), Error> {
+    let state = State::load(state_dir);
+    let mut names: Vec<String> = state.processes.keys().cloned().collect();
+    names.sort();
+
+    if names.is_empty() {
+        println!("No process groups found in state.");
+        return Ok(());
+    }
+
+    for name in &names {
+        let log_path = State::log_file(state_dir, name);
+        if !log_path.exists() {
+            continue;
+        }
+        println!("==> {}.log <==", name);
+        if let Some(n) = tail {
+            if let Ok(buf) = tail_bytes(&log_path, n) {
+                print!("{}", String::from_utf8_lossy(&buf));
+                if !buf.is_empty() && !buf.ends_with(b"\n") {
+                    println!();
+                }
+            }
+        } else if let Ok(content) = std::fs::read_to_string(&log_path) {
+            print!("{}", content);
+            if !content.is_empty() && !content.ends_with('\n') {
+                println!();
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn logs(
-    name: String,
+    name: Option<String>,
+    all: bool,
     tail: Option<usize>,
     follow: bool,
     state_dir: &Path,
 ) -> Result<(), Error> {
+    if all || name.is_none() {
+        if follow {
+            return follow_all_logs(state_dir, tail);
+        } else {
+            return print_all_logs(state_dir, tail);
+        }
+    }
+
+    let name = name.unwrap();
     let log_path = State::log_file(state_dir, &name);
 
     if !log_path.exists() {

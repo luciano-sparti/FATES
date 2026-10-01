@@ -1,11 +1,27 @@
-groups:
-  web:
-    cmd: sleep 100
-    depends: [db]
-
+version: "2"
+services:
   db:
-    cmd: sleep 200
+    command: "sleep 200"
+    healthcheck:
+      cmd: "true"
+      interval_ms: 500
+      timeout_ms: 2000
+      retries: 5
+    restart_policy:
+      condition: on_failure
+      max_retries: 3
+      backoff_ms: 1000
 
   api:
-    cmd: sleep 150
-    depends: [db]
+    command: "sleep 150"
+    depends_on:
+      - db: healthy
+    healthcheck:
+      cmd: "true"
+      interval_ms: 500
+      retries: 3
+
+  web:
+    command: "sleep 100"
+    depends_on:
+      - api: healthy

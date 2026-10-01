@@ -1,25 +1,79 @@
 use crate::error::Error;
+use crate::health::{HealthCheckConfig, RestartPolicyConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum DependencySpec {
+    Simple(String),
+    Conditional(HashMap<String, String>),
+}
+
+impl DependencySpec {
+    pub fn name(&self) -> String {
+        match self {
+            DependencySpec::Simple(s) => s.clone(),
+            DependencySpec::Conditional(map) => map.keys().next().cloned().unwrap_or_default(),
+        }
+    }
+
+    pub fn condition(&self) -> Option<String> {
+        match self {
+            DependencySpec::Simple(_) => None,
+            DependencySpec::Conditional(map) => map.values().next().cloned(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Config {
     #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default, alias = "services")]
     pub groups: HashMap<String, GroupConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct GroupConfig {
+    #[serde(alias = "command")]
     pub cmd: String,
     pub cwd: Option<String>,
-    #[serde(default)]
-    pub depends: Vec<String>,
+    #[serde(default, alias = "depends_on")]
+    pub depends: Vec<DependencySpec>,
     /// Environment variables set for this group's process. Also consulted when
     /// expanding `$VAR` in `cmd` and `cwd`.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub healthcheck: Option<HealthCheckConfig>,
+    #[serde(default)]
+    pub restart_policy: Option<RestartPolicyConfig>,
+    #[serde(default)]
+    pub stop_grace_period_ms: Option<u64>,
+}
+
+impl GroupConfig {
+    pub fn depends_names(&self) -> Vec<String> {
+        self.depends
+            .iter()
+            .map(|d| d.name())
+            .filter(|n| !n.is_empty())
+            .collect()
+    }
+
+    pub fn requires_healthy(&self, dep_name: &str) -> bool {
+        for d in &self.depends {
+            if d.name() == dep_name {
+                if let Some(cond) = d.condition() {
+                    return cond.eq_ignore_ascii_case("healthy");
+                }
+            }
+        }
+        false
+    }
 }
 
 impl Config {
@@ -27,6 +81,7 @@ impl Config {
         let path = path.as_ref();
         if !path.exists() {
             return Ok(Config {
+                version: None,
                 groups: HashMap::new(),
             });
         }
@@ -53,8 +108,10 @@ impl Config {
                 errors.push(format!("Group '{}': 'cmd' must not be empty.", name));
             }
 
+            let dep_names = group.depends_names();
+
             // Check all dependencies exist
-            for dep in &group.depends {
+            for dep in &dep_names {
                 if !self.groups.contains_key(dep) {
                     errors.push(format!(
                         "Group '{}': dependency '{}' is not defined in config.",
@@ -64,7 +121,7 @@ impl Config {
             }
 
             // Check for self-dependency
-            if group.depends.contains(name) {
+            if dep_names.contains(name) {
                 errors.push(format!("Group '{}': depends on itself.", name));
             }
         }
@@ -85,11 +142,11 @@ impl Config {
 
         for name in names {
             if let Some(group) = self.groups.get(name) {
-                for dep in &group.depends {
-                    if present.contains(dep) && dep != name {
+                for dep in group.depends_names() {
+                    if present.contains(&dep) && dep != *name {
                         *indegree.get_mut(name).unwrap() += 1;
                         dependents
-                            .entry(dep.clone())
+                            .entry(dep)
                             .or_default()
                             .push(name.clone());
                     }
@@ -138,12 +195,21 @@ mod tests {
                 GroupConfig {
                     cmd: cmd.to_string(),
                     cwd: None,
-                    depends: depends.iter().map(|s| s.to_string()).collect(),
+                    depends: depends
+                        .iter()
+                        .map(|s| DependencySpec::Simple(s.to_string()))
+                        .collect(),
                     env: HashMap::new(),
+                    healthcheck: None,
+                    restart_policy: None,
+                    stop_grace_period_ms: None,
                 },
             );
         }
-        Config { groups: map }
+        Config {
+            version: None,
+            groups: map,
+        }
     }
 
     #[test]
@@ -179,7 +245,6 @@ mod tests {
     fn self_dependency_is_an_error() {
         let cfg = make_config(&[("web", "npm run dev", &["web"])]);
         let errors = cfg.validate();
-        // self-dep triggers both the missing-dep check AND the self-dep check
         let self_dep_err = errors.iter().any(|e| e.contains("depends on itself"));
         assert!(
             self_dep_err,
@@ -234,5 +299,39 @@ mod tests {
         let mut order = cfg.topological_order(&names);
         order.sort();
         assert_eq!(order, names);
+    }
+
+    #[test]
+    fn parses_v2_fates_yaml_with_services_and_healthcheck() {
+        let yaml = r#"
+version: "2"
+services:
+  database:
+    command: "postgres -D /data"
+    healthcheck:
+      tcp: "127.0.0.1:5432"
+      interval_ms: 100
+      retries: 3
+    restart_policy:
+      condition: on_failure
+      max_retries: 3
+  api:
+    command: "uvicorn app:main"
+    depends_on:
+      - database: healthy
+"#;
+        let cfg: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.version.as_deref(), Some("2"));
+        assert!(cfg.groups.contains_key("database"));
+        assert!(cfg.groups.contains_key("api"));
+
+        let db = &cfg.groups["database"];
+        assert_eq!(db.cmd, "postgres -D /data");
+        assert!(db.healthcheck.is_some());
+        assert_eq!(db.healthcheck.as_ref().unwrap().tcp.as_deref(), Some("127.0.0.1:5432"));
+
+        let api = &cfg.groups["api"];
+        assert_eq!(api.depends_names(), vec!["database"]);
+        assert!(api.requires_healthy("database"));
     }
 }

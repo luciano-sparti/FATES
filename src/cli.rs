@@ -77,11 +77,15 @@ pub enum Commands {
         /// The name of the process group
         name: String,
     },
-    /// Print captured logs for a process group
+    /// Print captured logs for a process group (or all active groups if omitted)
     #[command(visible_alias = "log")]
     Logs {
-        /// The name of the process group
-        name: String,
+        /// The name of the process group (omit to stream all groups)
+        name: Option<String>,
+
+        /// Stream all active process groups
+        #[arg(long)]
+        all: bool,
 
         /// Number of lines to show from the end (default: all)
         #[arg(long, short)]

@@ -1303,6 +1303,69 @@ fn spin_rejects_config_with_empty_cmd() {
     assert!(stderr.contains("must not be empty"), "stderr: {}", stderr);
 }
 
+#[test]
+fn draw_with_healthcheck_and_dependency_awaiting() {
+    let env = TestEnv::new();
+    let flag_file = env.dir.join("db_ready.flag");
+    let flag_path = flag_file.to_string_lossy().to_string();
+
+    let cfg_content = format!(
+        r#"
+version: "2"
+services:
+  db:
+    command: "sh -c 'sleep 0.1 && touch {} && sleep 10'"
+    healthcheck:
+      cmd: "test -f {}"
+      interval_ms: 50
+      retries: 20
+  api:
+    command: "sleep 10"
+    depends_on:
+      - db: healthy
+"#,
+        flag_path, flag_path
+    );
+
+    let cfg = env.config(&cfg_content);
+    let cfg_str = cfg.to_string_lossy();
+
+    let (stdout, stderr, code) = env.run(&["--config", &cfg_str, "draw", "--all"]);
+    assert_eq!(code, 0, "draw --all should succeed. stderr: {}", stderr);
+    assert!(stdout.contains("healthy"), "stdout: {}", stdout);
+    assert!(flag_file.exists(), "flag file should have been created");
+
+    let _ = env.run(&["--config", &cfg_str, "cut", "--all", "--force"]);
+}
+
+#[test]
+fn logs_all_prints_multiple_group_logs() {
+    let env = TestEnv::new();
+    let cfg_content = r#"
+groups:
+  srv1:
+    cmd: "echo 'hello from service 1'"
+  srv2:
+    cmd: "echo 'hello from service 2'"
+"#;
+    let cfg = env.config(cfg_content);
+    let cfg_str = cfg.to_string_lossy();
+
+    let (_, _, code) = env.run(&["--config", &cfg_str, "draw", "--all"]);
+    assert_eq!(code, 0);
+
+    thread::sleep(Duration::from_millis(300));
+
+    let (stdout, _, code) = env.run(&["logs", "--all"]);
+    assert_eq!(code, 0);
+    assert!(stdout.contains("==> srv1.log <=="), "stdout: {}", stdout);
+    assert!(stdout.contains("==> srv2.log <=="), "stdout: {}", stdout);
+    assert!(stdout.contains("hello from service 1"), "stdout: {}", stdout);
+    assert!(stdout.contains("hello from service 2"), "stdout: {}", stdout);
+
+    let _ = env.run(&["--config", &cfg_str, "cut", "--all", "--force"]);
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 /// Creates a temporary directory that is removed when the returned guard is dropped.
