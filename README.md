@@ -39,7 +39,10 @@ No `tmux` panes to juggle. No shell scripts to maintain. Just a `fates.yaml` and
 
 - 🧵 **Declarative stacks** — one `fates.yaml` declares every service and its startup order.
 - ▶️ **Three verbs** — `spin` to register, `draw` to run, `cut` to stop. That's the whole vocabulary.
-- 🪢 **Dependency-aware** — `draw --all` brings your stack up in the right order; `cut --all` tears it down safely.
+- 🪢 **Dependency-aware** — `draw --all` brings your stack up in dependency order; `cut --all` tears it down safely.
+- 🩺 **Health checks & readiness** — verify TCP, HTTP, or custom commands before starting dependent services (`condition: healthy`).
+- 🔁 **Supervisor auto-restart** — automatic process revival on failure with configurable exponential backoff and jitter.
+- 📜 **Interleaved streaming logs** — follow multi-service logs across your entire active stack in real time (`fates logs -a -f`).
 - 📊 **Live dashboard** — `loom` shows every process's status, CPU, memory, and uptime at a glance, with an interactive `--watch` mode.
 - 🗂️ **Captured logs** — every group's output is saved, so you always have an audit trail.
 - 🔒 **Crash-safe state** — atomic writes and file locks mean concurrent runs and crashes never corrupt your state.
@@ -180,9 +183,23 @@ groups:
   <name>:
     cmd: <shell command to run>    # Required. The command to execute.
     cwd: <working directory>       # Optional. Defaults to the directory where fates is invoked.
-    depends: [<name>, ...]         # Optional. Other groups this one depends on (for weave and draw --all).
+    depends:                       # Optional. Other groups this one depends on.
+      - <name>                     # Simple dependency
+      - name: <name>               # Advanced dependency
+        condition: healthy         # Wait for upstream healthcheck to pass before starting
     env:                           # Optional. Environment variables for the process.
       <VAR>: <value>
+    healthcheck:                   # Optional. Proactive health probe.
+      tcp: "127.0.0.1:5432"        # TCP address to probe (or http / exec_cmd)
+      # http: "http://127.0.0.1:8080/health"
+      # exec_cmd: "pg_isready"
+      interval_ms: 1000            # Delay between probes (default: 1000)
+      timeout_ms: 2000             # Probe timeout (default: 2000)
+      retries: 15                  # Maximum attempts before failing (default: 10)
+    restart_policy:                # Optional. Supervisor auto-restart behavior.
+      condition: on_failure        # "always" | "on_failure" | "never" (default)
+      max_retries: 5               # Maximum restart attempts (default: 3)
+      backoff_ms: 500              # Base backoff in ms with jitter (default: 500)
 ```
 
 `cmd` supports shell-style quoting (single quotes, double quotes, backslashes). `$VAR` / `${VAR}` references in `cmd` and `cwd` are expanded from the process environment, with the group's `env:` block taking precedence; unset variables expand to empty. A leading `~` in `cmd` or `cwd` is expanded to your home directory.
